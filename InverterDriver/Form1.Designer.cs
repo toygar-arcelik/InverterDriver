@@ -45,8 +45,6 @@
             this.txtOutFanTargetSpeed = new System.Windows.Forms.TextBox();
             this.btnSend = new System.Windows.Forms.Button();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
-            this.listBox1 = new System.Windows.Forms.ListBox();
-            this.checkBoxAutoScroll = new System.Windows.Forms.CheckBox();
             this.cbxBaudrate = new System.Windows.Forms.ComboBox();
             this.label7 = new System.Windows.Forms.Label();
             this.cbxDatabits = new System.Windows.Forms.ComboBox();
@@ -59,6 +57,9 @@
             this.panelStatus = new System.Windows.Forms.Panel();
             this.labelStatus = new System.Windows.Forms.Label();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
+            this.commBox = new System.Windows.Forms.RichTextBox();
+            this.checkBoxAutoScroll = new System.Windows.Forms.CheckBox();
+            this.btnClearScreen = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.panelStatus.SuspendLayout();
             this.SuspendLayout();
@@ -196,31 +197,12 @@
             // pictureBox1
             // 
             this.pictureBox1.Image = ((System.Drawing.Image)(resources.GetObject("pictureBox1.Image")));
-            this.pictureBox1.Location = new System.Drawing.Point(1148, 471);
+            this.pictureBox1.Location = new System.Drawing.Point(1147, 487);
             this.pictureBox1.Name = "pictureBox1";
             this.pictureBox1.Size = new System.Drawing.Size(149, 81);
             this.pictureBox1.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
             this.pictureBox1.TabIndex = 14;
             this.pictureBox1.TabStop = false;
-            // 
-            // listBox1
-            // 
-            this.listBox1.FormattingEnabled = true;
-            this.listBox1.ItemHeight = 16;
-            this.listBox1.Location = new System.Drawing.Point(573, 72);
-            this.listBox1.Name = "listBox1";
-            this.listBox1.Size = new System.Drawing.Size(724, 372);
-            this.listBox1.TabIndex = 13;
-            // 
-            // checkBoxAutoScroll
-            // 
-            this.checkBoxAutoScroll.AutoSize = true;
-            this.checkBoxAutoScroll.Location = new System.Drawing.Point(573, 456);
-            this.checkBoxAutoScroll.Name = "checkBoxAutoScroll";
-            this.checkBoxAutoScroll.Size = new System.Drawing.Size(139, 20);
-            this.checkBoxAutoScroll.TabIndex = 15;
-            this.checkBoxAutoScroll.Text = "Auto Scroll Enable";
-            this.checkBoxAutoScroll.UseVisualStyleBackColor = true;
             // 
             // cbxBaudrate
             // 
@@ -342,13 +324,44 @@
             // linkLabel1
             // 
             this.linkLabel1.AutoSize = true;
-            this.linkLabel1.Location = new System.Drawing.Point(1191, 555);
+            this.linkLabel1.Location = new System.Drawing.Point(1190, 571);
             this.linkLabel1.Name = "linkLabel1";
             this.linkLabel1.Size = new System.Drawing.Size(76, 16);
             this.linkLabel1.TabIndex = 26;
             this.linkLabel1.TabStop = true;
             this.linkLabel1.Text = "@toygarozl";
             this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
+            // 
+            // commBox
+            // 
+            this.commBox.BackColor = System.Drawing.Color.Cornsilk;
+            this.commBox.Location = new System.Drawing.Point(613, 66);
+            this.commBox.Name = "commBox";
+            this.commBox.ReadOnly = true;
+            this.commBox.Size = new System.Drawing.Size(683, 380);
+            this.commBox.TabIndex = 27;
+            this.commBox.Text = "";
+            this.commBox.TextChanged += new System.EventHandler(this.commBox_TextChanged);
+            // 
+            // checkBoxAutoScroll
+            // 
+            this.checkBoxAutoScroll.AutoSize = true;
+            this.checkBoxAutoScroll.Location = new System.Drawing.Point(613, 452);
+            this.checkBoxAutoScroll.Name = "checkBoxAutoScroll";
+            this.checkBoxAutoScroll.Size = new System.Drawing.Size(93, 20);
+            this.checkBoxAutoScroll.TabIndex = 28;
+            this.checkBoxAutoScroll.Text = "Auto Scroll";
+            this.checkBoxAutoScroll.UseVisualStyleBackColor = true;
+            // 
+            // btnClearScreen
+            // 
+            this.btnClearScreen.Location = new System.Drawing.Point(613, 478);
+            this.btnClearScreen.Name = "btnClearScreen";
+            this.btnClearScreen.Size = new System.Drawing.Size(119, 31);
+            this.btnClearScreen.TabIndex = 29;
+            this.btnClearScreen.Text = "Clear Screen";
+            this.btnClearScreen.UseVisualStyleBackColor = true;
+            this.btnClearScreen.Click += new System.EventHandler(this.btnClearScreen_Click);
             // 
             // Form1
             // 
@@ -357,6 +370,9 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.GradientActiveCaption;
             this.ClientSize = new System.Drawing.Size(1336, 603);
+            this.Controls.Add(this.btnClearScreen);
+            this.Controls.Add(this.checkBoxAutoScroll);
+            this.Controls.Add(this.commBox);
             this.Controls.Add(this.linkLabel1);
             this.Controls.Add(this.panelStatus);
             this.Controls.Add(this.btnConnect);
@@ -368,9 +384,7 @@
             this.Controls.Add(this.label8);
             this.Controls.Add(this.cbxBaudrate);
             this.Controls.Add(this.label7);
-            this.Controls.Add(this.checkBoxAutoScroll);
             this.Controls.Add(this.pictureBox1);
-            this.Controls.Add(this.listBox1);
             this.Controls.Add(this.btnSend);
             this.Controls.Add(this.txtOutFanTargetSpeed);
             this.Controls.Add(this.txtCompTargetSpeed);
@@ -413,8 +427,6 @@
         private System.Windows.Forms.TextBox txtOutFanTargetSpeed;
         private System.Windows.Forms.Button btnSend;
         private System.Windows.Forms.PictureBox pictureBox1;
-        private System.Windows.Forms.ListBox listBox1;
-        private System.Windows.Forms.CheckBox checkBoxAutoScroll;
         private System.Windows.Forms.ComboBox cbxBaudrate;
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.ComboBox cbxDatabits;
@@ -427,6 +439,9 @@
         private System.Windows.Forms.Panel panelStatus;
         private System.Windows.Forms.Label labelStatus;
         private System.Windows.Forms.LinkLabel linkLabel1;
+        public System.Windows.Forms.RichTextBox commBox;
+        private System.Windows.Forms.CheckBox checkBoxAutoScroll;
+        private System.Windows.Forms.Button btnClearScreen;
     }
 }
 
