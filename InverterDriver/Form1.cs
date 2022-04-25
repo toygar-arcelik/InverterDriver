@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO.Ports;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -9,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
+using System.Windows.Documents;
 
 namespace InverterDriver
 {
@@ -20,6 +22,7 @@ namespace InverterDriver
         private int receivedByteCount = 0;
         static private int expectedBytes = 128;
         private byte[] receivedBytes = new byte[expectedBytes];
+        String receivedDataString = "";
         
         private void initializeInverterData()
         {
@@ -73,6 +76,12 @@ namespace InverterDriver
             labelStatus.Text = "Disconnected";
             panelStatus.BackColor = Color.Red;
             adjustStatusLabel();
+
+            commBox.SelectionFont = new Font("Tahoma", 12, FontStyle.Underline);
+            commBox.SelectionAlignment = HorizontalAlignment.Center;
+            
+            commBox.AppendText("Communication Window");
+            commBox.AppendText("\r\n\r\n");
         }
 
         private void btnSend_Click(object sender, EventArgs e)
@@ -88,24 +97,19 @@ namespace InverterDriver
                 checksum += inverterData[i];
             }
             inverterData[63] = checksum;
+            
+            commBox.SelectionColor = Color.Blue;
+            commBox.AppendText("-> ");
+            commBox.SelectionColor = Color.LightGreen;
             foreach (var item in inverterData)
             {
                 Console.Write(item.ToString("X2") + " ");
+                commBox.AppendText(item.ToString("X2") + " ");
             }
             Console.WriteLine(" ");
+            commBox.AppendText("\r\n\r\n");
+            
             serialPort.Write(inverterData, 0, inverterData.Length);
-
-            /* kartı çalıştıran data */
-            /*
-            byte checksum = 0;
-            var sendData = new byte[65] { 0xFA, 0xFC, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-            foreach (var item in sendData)
-            {
-                checksum += item;
-            }
-            sendData[sendData.Length - 1] = checksum;
-            serialPort.Write(sendData, 0, sendData.Length);
-            */
         }
 
         private void cbxMasterCtrlSw_SelectedIndexChanged(object sender, EventArgs e)
@@ -194,41 +198,26 @@ namespace InverterDriver
 
         private void serialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            
             int bytes = serialPort.BytesToRead;
             receivedByteCount += bytes;
             byte[] buffer = new byte[bytes];
             serialPort.Read(buffer, 0, bytes);
-            
-            /*
-            foreach (var item in buffer)
-            {
-                Console.Write(item.ToString("X2") + " ");
-                receivedBytes[receivedByteCount] = item;
-                receivedByteCount++;
-                if (receivedByteCount >= expectedBytes) {
-                    receivedByteCount = 0;
-                    Console.WriteLine("");
-                    this.Invoke(new MethodInvoker(delegate ()
-                    {
-                        listBox1.Items.Add(BitConverter.ToString(receivedBytes));
-                    }));
-                }
-            }*/
-            
-            
+           
             Console.Write(BitConverter.ToString(buffer));
             Console.Write("-");
-            if(receivedByteCount >= expectedBytes)
+            foreach (var item in buffer)
+            {
+                receivedDataString += item.ToString("X2") + " ";
+            }
+            if (receivedByteCount >= expectedBytes)
             {
                 receivedByteCount = 0;
+                commBox.SelectionColor = Color.Red;
+                commBox.AppendText("<- ");
+                commBox.SelectionColor = Color.MediumOrchid;
+                commBox.AppendText(receivedDataString + "\r\n\r\n");
+                receivedDataString = "";
                 Console.WriteLine("");
-            }
-            
-
-            if (checkBoxAutoScroll.Checked && listBox1.Items.Count > 0)
-            {
-                listBox1.SelectedIndex = listBox1.Items.Count - 1;
             }
         }
 
@@ -276,6 +265,25 @@ namespace InverterDriver
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
             Process.Start("www.google.com");
+        }
+
+        private void btnClearScreen_Click(object sender, EventArgs e)
+        {
+            commBox.Clear();
+            commBox.SelectionFont = new Font("Tahoma", 12, FontStyle.Underline);
+            commBox.SelectionAlignment = HorizontalAlignment.Center;
+
+            commBox.AppendText("Communication Window");
+            commBox.AppendText("\r\n\r\n");
+        }
+
+        private void commBox_TextChanged(object sender, EventArgs e)
+        {
+            if (checkBoxAutoScroll.Checked)
+            {
+                commBox.SelectionStart = commBox.Text.Length;
+                commBox.ScrollToCaret();
+            }
         }
     }
 }
