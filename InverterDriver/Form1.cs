@@ -11,17 +11,20 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
 using System.Windows.Documents;
+using InverterDriver.product;
 
 namespace InverterDriver
 {
     public partial class Form1 : Form
     {
-        private byte[] inverterData = new byte[64];
+        bool sendFlag = false;
+        private byte[] inverterData = new byte[64]; // Sending data
         
         // Why c# doesn't have local static variables?
         private int receivedByteCount = 0;
         static private int expectedBytes = 128;
-        private byte[] receivedBytes = new byte[expectedBytes];
+        ResponseData responseData = new ResponseData();
+        //private byte[] receivedBytes = new byte[expectedBytes];
         String receivedDataString = "";
         
         private void initializeInverterData()
@@ -61,6 +64,27 @@ namespace InverterDriver
             labelStatus.Left = (panelStatus.Width / 2) - (labelStatus.Width / 2);
             labelStatus.Top = (panelStatus.Height / 2) - (labelStatus.Height / 2);
         }
+
+        delegate void commBoxReceivedDataCallback();
+        private void commBoxReceivedData()
+        {
+            if(commBox.InvokeRequired)
+            {
+                commBoxReceivedDataCallback d = new commBoxReceivedDataCallback(commBoxReceivedData);
+                Invoke(d);
+            } else
+            {
+                commBox.SelectionColor = Color.Red;
+                commBox.AppendText("<- ");
+                commBox.SelectionColor = Color.MediumOrchid;
+                commBox.AppendText(receivedDataString + "\r\n\r\n");
+                receivedDataString = "";
+                Console.WriteLine("");
+
+            }
+        }
+
+
         public Form1()
         {
             InitializeComponent();
@@ -82,34 +106,44 @@ namespace InverterDriver
             
             commBox.AppendText("Communication Window");
             commBox.AppendText("\r\n\r\n");
+
+            dataGridView1.Rows.Add("Status", "");
+            dataGridView1.Rows.Add("Function", "");
+            dataGridView1.Rows.Add("Motor speed", 0);
+            dataGridView1.Rows.Add("Fan speed", 0);
+
+            dataGridView1.Height = dataGridView1.RowTemplate.Height * (dataGridView1.Rows.Count + 1);
+
+
         }
 
         private void btnSend_Click(object sender, EventArgs e)
         {
             if (!serialPort.IsOpen) { MessageBox.Show("Serial port is not open."); return; }
 
-            /* Normal calisma algoritmasi */
-
-            // Checksum
-            byte checksum = 0;
-            for (int i = 0; i < inverterData.Length-1; i++)
+            if (!timer1.Enabled)
             {
-                checksum += inverterData[i];
+                labelTimer.Text = "00:00:00";
+                timer1.Enabled = true;
+                btnSend.Text = "Stop sending";
+                btnSend.BackColor = Color.Red;
+                cbxMasterCtrlSw.Enabled = false;
+                cbxOutFanCtrl.Enabled = false;
+                CbxCompSwCtrl.Enabled = false;
+                txtCompTargetSpeed.Enabled = false;
+                txtOutFanTargetSpeed.Enabled = false;
             }
-            inverterData[63] = checksum;
-            
-            commBox.SelectionColor = Color.Blue;
-            commBox.AppendText("-> ");
-            commBox.SelectionColor = Color.LightGreen;
-            foreach (var item in inverterData)
+            else
             {
-                Console.Write(item.ToString("X2") + " ");
-                commBox.AppendText(item.ToString("X2") + " ");
+                timer1.Enabled = false;
+                btnSend.Text = "Start sending";
+                btnSend.BackColor = Color.LightGreen;
+                cbxMasterCtrlSw.Enabled = true;
+                cbxOutFanCtrl.Enabled = true;
+                CbxCompSwCtrl.Enabled = true;
+                txtCompTargetSpeed.Enabled = true;
+                txtOutFanTargetSpeed.Enabled = true;
             }
-            Console.WriteLine(" ");
-            commBox.AppendText("\r\n\r\n");
-            
-            serialPort.Write(inverterData, 0, inverterData.Length);
         }
 
         private void cbxMasterCtrlSw_SelectedIndexChanged(object sender, EventArgs e)
@@ -209,16 +243,24 @@ namespace InverterDriver
             {
                 receivedDataString += item.ToString("X2") + " ";
             }
+            /*
             if (receivedByteCount >= expectedBytes)
             {
                 receivedByteCount = 0;
-                commBox.SelectionColor = Color.Red;
-                commBox.AppendText("<- ");
-                commBox.SelectionColor = Color.MediumOrchid;
-                commBox.AppendText(receivedDataString + "\r\n\r\n");
-                receivedDataString = "";
-                Console.WriteLine("");
+                string[] x = receivedDataString.Split(' ');
+                
+                List<int> intList = new List<int>();
+                foreach (string item in x)
+                {
+                    if (item != "")
+                    {
+                        intList.Add(Convert.ToInt32(item, 16));
+                    }
+                }
+                responseData.responseData = intList.SelectMany(i => BitConverter.GetBytes(i)).ToArray();
+                commBoxReceivedData();
             }
+            */
         }
 
         private void btnConnect_Click(object sender, EventArgs e)
@@ -246,6 +288,7 @@ namespace InverterDriver
                 panelStatus.BackColor = Color.LimeGreen;
                 adjustStatusLabel();
             }
+            else if (serialPort.IsOpen && timer1.Enabled) { MessageBox.Show("First stop sending data.", "Hatalı İşlem", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
             else
             {
                 serialPort.Close();
@@ -283,6 +326,94 @@ namespace InverterDriver
             {
                 commBox.SelectionStart = commBox.Text.Length;
                 commBox.ScrollToCaret();
+            }
+        }
+
+        private void commBoxHelpBtn_MouseHover(object sender, EventArgs e)
+        {
+            commBoxHelpBtn.BackColor = Color.LightGray;
+            toolTip1.Show("hi", commBoxHelpBtn);
+            
+        }
+
+        private void commBoxHelpBtn_MouseLeave(object sender, EventArgs e)
+        {
+            toolTip1.Hide(commBoxHelpBtn);
+            commBoxHelpBtn.BackColor = Color.Transparent;
+        }
+
+        private void timer1_Tick(object sender, EventArgs e)
+        {
+            if (!serialPort.IsOpen) 
+            { 
+                timer1.Enabled = false; 
+                MessageBox.Show("Serial port is not open."); 
+                return; 
+            }
+
+            /* Write to Serial Port & Communication Box */
+            byte checksum = 0;
+            for (int i = 0; i < inverterData.Length - 1; i++)
+            {
+                checksum += inverterData[i];
+            }
+            inverterData[63] = checksum;
+
+            commBox.SelectionColor = Color.Blue;
+            commBox.AppendText("-> ");
+            commBox.SelectionColor = Color.LightGreen;
+            foreach (var item in inverterData)
+            {
+                Console.Write(item.ToString("X2") + " ");
+                commBox.AppendText(item.ToString("X2") + " ");
+            }
+            Console.WriteLine(" ");
+            commBox.AppendText("\r\n\r\n");
+
+            serialPort.Write(inverterData, 0, inverterData.Length);
+
+
+            /* Timer Label */
+            string[] hms = labelTimer.Text.Split(':');
+            int h = Convert.ToInt32(hms[0]);
+            int m = Convert.ToInt32(hms[1]);
+            int s = Convert.ToInt32(hms[2]);
+
+            s++;
+            if (s >= 60) { s = 0; m++; }
+            if (m >= 60) { m = 0; h++; }
+            labelTimer.Text = h.ToString("00") + ":" + m.ToString("00") + ":" + s.ToString("00");
+
+            /* Received Data & Communication Box */
+            receivedByteCount = 0;
+            string[] x = receivedDataString.Split(' ');
+
+            List<int> intList = new List<int>();
+            foreach (string item in x)
+            {
+                if (item != "")
+                {
+                    intList.Add(Convert.ToInt32(item, 16));
+                }
+            }
+            for (int i = 0; i < intList.Count; i++)
+            {
+                responseData.responseData[i] = Convert.ToByte(intList[i]);
+            }
+            //responseData.responseData = intList.SelectMany(i => BitConverter.GetBytes(i)).ToArray();
+            commBoxReceivedData();
+
+            /* Status Table */
+            try
+            {
+                dataGridView1[1, 0].Value = responseData.GetSystemStatus();
+                dataGridView1[1, 1].Value = responseData.GetFunctionStatus();
+                dataGridView1[1, 2].Value = responseData.GetOutdoorFanActualSpeed();
+                dataGridView1[1, 3].Value = responseData.GetCompressorActualSpeed();
+                dataGridView1.Show();
+            } catch(Exception ex)
+            {
+                Console.WriteLine(ex.Message);
             }
         }
     }

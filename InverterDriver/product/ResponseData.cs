@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using System.Collections;
 
 namespace InverterDriver.product
 {
@@ -20,10 +20,10 @@ namespace InverterDriver.product
         compressorTargetSpeedRpmHigh = 53,
         compressorActualSpeedRpmLow = 54,
         compressorActualSpeedRpmHigh = 55,
-        outdorrFanTargetSpeedLow = 56,
-        outdorrFanTargetSpeedHigh = 57,
-        outdorrFanActualSpeedLow = 58,
-        outdorrFanActualSpeedHigh = 59,
+        outdoorFanTargetSpeedLow = 56,
+        outdoorFanTargetSpeedHigh = 57,
+        outdoorFanActualSpeedLow = 58,
+        outdoorFanActualSpeedHigh = 59,
         acVoltRmsLow = 60,
         acVoltRmsHigh = 61,
         dcVoltRmsLow = 62,
@@ -46,12 +46,78 @@ namespace InverterDriver.product
     
     public class ResponseData
     {
-        byte[] responseData = new byte[Constants.responseDataSize];
+        public byte[] responseData = new byte[Constants.responseDataSize];
+        readonly string _defaultString = "default";
 
-        ResponseData()
+        public ResponseData()
         {
             
         }
-            
+
+        public string GetSystemStatus()
+        {
+            switch (responseData[ResponseDataIndex.systemStatus.GetHashCode()])
+            {
+                case 1:
+                    return "Standby";
+                case 2:
+                    return "Running";
+                case 4:
+                    return "Error";
+                case 8:
+                    return "Warm up";
+                case 16:
+                    return "Self-test";
+                default:
+                    return _defaultString;
+            }
+        }
+        public string GetFunctionStatus()
+        {
+            switch (responseData[ResponseDataIndex.functionStatus.GetHashCode()])
+            {
+                case 1:
+                    return "PFC operation";
+                case 2:
+                    return "Motor running";
+                case 4:
+                    return "Motor limited frequency operation";
+                case 8:
+                    return "Fan operation";
+                default:
+                    return _defaultString;
+            }
+        }
+        public int GetCompressorTargetSpeed()
+        {
+            int _speed = 0;
+            _speed |= (responseData[ResponseDataIndex.compressorTargetSpeedRpmHigh.GetHashCode()] << 8);
+            _speed |= responseData[ResponseDataIndex.compressorTargetSpeedRpmLow.GetHashCode()];
+            return _speed;
+        }
+        public int GetCompressorActualSpeed()
+        {
+            int _speed = 0;
+            _speed |= responseData[ResponseDataIndex.compressorActualSpeedRpmHigh.GetHashCode()] << 8;
+            _speed |= responseData[ResponseDataIndex.compressorActualSpeedRpmLow.GetHashCode()];
+            return _speed;
+        }
+        public int GetOutdoorFanTargetSpeed()
+        {
+            int _speed = 0;
+            _speed |= responseData[ResponseDataIndex.outdoorFanTargetSpeedHigh.GetHashCode()] << 8;
+            _speed |= responseData[ResponseDataIndex.outdoorFanTargetSpeedLow.GetHashCode()];
+            return _speed;
+        }
+        public int GetOutdoorFanActualSpeed()
+        {
+            int _speed = 0;
+            _speed |= responseData[ResponseDataIndex.outdoorFanActualSpeedHigh.GetHashCode()] << 8;
+            _speed |= responseData[ResponseDataIndex.outdoorFanActualSpeedLow.GetHashCode()];
+            return _speed;
+        }
+        
+
+        
     }
 }
