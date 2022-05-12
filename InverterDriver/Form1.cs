@@ -111,6 +111,8 @@ namespace InverterDriver
             dataGridView1.Rows.Add("Function", "");
             dataGridView1.Rows.Add("Motor speed", 0);
             dataGridView1.Rows.Add("Fan speed", 0);
+            dataGridView1.Rows.Add("target Fan speed", 0);
+            dataGridView1.Rows.Add("target motor speed", 0);
 
             dataGridView1.Height = dataGridView1.RowTemplate.Height * (dataGridView1.Rows.Count + 1);
 
@@ -372,7 +374,6 @@ namespace InverterDriver
 
             serialPort.Write(inverterData, 0, inverterData.Length);
 
-
             /* Timer Label */
             string[] hms = labelTimer.Text.Split(':');
             int h = Convert.ToInt32(hms[0]);
@@ -396,11 +397,26 @@ namespace InverterDriver
                     intList.Add(Convert.ToInt32(item, 16));
                 }
             }
-            for (int i = 0; i < intList.Count; i++)
+            
+            byte receivedChecksum = 0;
+            for (int i = 0; i < intList.Count-1; i++)
             {
-                responseData.responseData[i] = Convert.ToByte(intList[i]);
+                receivedChecksum += Convert.ToByte(intList[i]);
             }
-            //responseData.responseData = intList.SelectMany(i => BitConverter.GetBytes(i)).ToArray();
+            if (intList.Count != 0 && receivedChecksum == Convert.ToByte(intList[intList.Count - 1])) 
+            { 
+                for (int i = 0; i < intList.Count; i++)
+                {
+                    try
+                    {
+                        responseData.responseData[i] = Convert.ToByte(intList[i]);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+                }
+            }
             commBoxReceivedData();
 
             /* Status Table */
@@ -410,6 +426,8 @@ namespace InverterDriver
                 dataGridView1[1, 1].Value = responseData.GetFunctionStatus();
                 dataGridView1[1, 2].Value = responseData.GetOutdoorFanActualSpeed();
                 dataGridView1[1, 3].Value = responseData.GetCompressorActualSpeed();
+                dataGridView1[1, 4].Value = responseData.GetOutdoorFanTargetSpeed();
+                dataGridView1[1, 5].Value = responseData.GetCompressorTargetSpeed();
                 dataGridView1.Show();
             } catch(Exception ex)
             {
