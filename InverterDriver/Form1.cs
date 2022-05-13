@@ -17,9 +17,13 @@ namespace InverterDriver
 {
     public partial class Form1 : Form
     {
-        bool sendFlag = false;
         private byte[] inverterData = new byte[64]; // Sending data
-        
+        List<DateTimePicker> dateTimePickers = new List<DateTimePicker>();
+        List<TextBox> compSpeedTextBoxes = new List<TextBox>();
+        DateTime startTime;
+        DateTime finishTime;
+
+
         // Why c# doesn't have local static variables?
         private int receivedByteCount = 0;
         static private int expectedBytes = 128;
@@ -27,6 +31,7 @@ namespace InverterDriver
         //private byte[] receivedBytes = new byte[expectedBytes];
         String receivedDataString = "";
         
+        /* Helper Functions */
         private void initializeInverterData()
         {
             for (int i = 0; i < inverterData.Length; i++)
@@ -84,7 +89,74 @@ namespace InverterDriver
             }
         }
 
+        private void EnableControlSettings(bool isEnable)
+        {
+            cbxMasterCtrlSw.Enabled = isEnable;
+            cbxOutFanCtrl.Enabled = isEnable;
+            CbxCompSwCtrl.Enabled = isEnable;
+            txtCompTargetSpeed.Enabled = isEnable;
+            txtOutFanTargetSpeed.Enabled = isEnable;
+        }
+        
+        private void EnableProgramSelect(bool isEnable)
+        {
+            defaultProgram.Enabled = isEnable;
+            setProgram.Enabled = isEnable;
+        }
 
+        private void EnableProgramSettings(bool isEnable)
+        {
+            foreach(var datetimepicker in dateTimePickers)
+            {
+                datetimepicker.Enabled = isEnable;
+            }
+            foreach (var textbox in compSpeedTextBoxes)
+            {
+                textbox.Enabled = isEnable;
+            }
+            txtProgramCount.Enabled = isEnable;
+            btnProgramAdd.Enabled = isEnable;
+        }
+
+        private void DefaultProgramWrite()
+        {
+            SetCompTargetSpeed(Convert.ToInt32(txtCompTargetSpeed.Text));
+            byte checksum = 0;
+            for (int i = 0; i < inverterData.Length - 1; i++)
+            {
+                checksum += inverterData[i];
+            }
+            inverterData[63] = checksum;
+            serialPort.Write(inverterData, 0, inverterData.Length);
+
+            commBox.SelectionColor = Color.Blue;
+            commBox.AppendText("-> ");
+            commBox.SelectionColor = Color.LightGreen;
+            foreach (var item in inverterData)
+            {
+                Console.Write(item.ToString("X2") + " ");
+                commBox.AppendText(item.ToString("X2") + " ");
+            }
+            Console.WriteLine(" ");
+            commBox.AppendText("\r\n\r\n");
+        }
+        
+        private void SetProgramWrite()
+        {
+            foreach (var datetimepicker in dateTimePickers)
+            {
+                TimeSpan diff = DateTime.Now - startTime;
+                //datetimepicker.
+            }
+        }
+
+        private void SetCompTargetSpeed(int speed)
+        {
+            inverterData[4] = Convert.ToByte(speed & 0xFF);         // Low byte
+            inverterData[5] = Convert.ToByte((speed >> 8) & 0xFF);  // High byte
+        }
+
+        /* Program events */
         public Form1()
         {
             InitializeComponent();
@@ -109,42 +181,66 @@ namespace InverterDriver
 
             dataGridView1.Rows.Add("Status", "");
             dataGridView1.Rows.Add("Function", "");
-            dataGridView1.Rows.Add("Motor speed", 0);
+            dataGridView1.Rows.Add("Compressor speed", 0);
             dataGridView1.Rows.Add("Fan speed", 0);
-            dataGridView1.Rows.Add("target Fan speed", 0);
-            dataGridView1.Rows.Add("target motor speed", 0);
+            dataGridView1.Rows.Add("Target Fan speed", 0);
+            dataGridView1.Rows.Add("Target Compressor speed", 0);
 
             dataGridView1.Height = dataGridView1.RowTemplate.Height * (dataGridView1.Rows.Count + 1);
 
-
+            clockLabel.Text = DateTime.Now.ToString("HH:mm:ss");
+            // one ring to rule them all
+            defaultProgram_Click(sender, e);
         }
 
         private void btnSend_Click(object sender, EventArgs e)
         {
             if (!serialPort.IsOpen) { MessageBox.Show("Serial port is not open."); return; }
 
-            if (!timer1.Enabled)
+            if (!programTimer.Enabled)
             {
                 labelTimer.Text = "00:00:00";
-                timer1.Enabled = true;
+                programTimer.Enabled = true;
                 btnSend.Text = "Stop sending";
                 btnSend.BackColor = Color.Red;
-                cbxMasterCtrlSw.Enabled = false;
-                cbxOutFanCtrl.Enabled = false;
-                CbxCompSwCtrl.Enabled = false;
-                txtCompTargetSpeed.Enabled = false;
-                txtOutFanTargetSpeed.Enabled = false;
+                EnableControlSettings(false);
+                EnableProgramSettings(false);
+                EnableProgramSelect(false);
+
+                startTime = DateTime.Now;
+                labelStartTime.Text = startTime.ToString("HH:mm");
+                
+                if (setProgram.Checked)
+                {
+                    int remainingMinutes = 0;
+                    foreach(var time in dateTimePickers)
+                    {
+                        remainingMinutes += (time.Value.Minute + time.Value.Hour * 60);
+                    }
+                    //labelFinishTime.Text = TimeSpan.FromMinutes(remainingMinutes).ToString(@"hh\:mm");
+                    finishTime = startTime.Add(TimeSpan.FromMinutes(remainingMinutes));
+                    labelFinishTime.Text = finishTime.ToString("HH:mm");
+                }
+                else
+                {
+                    finishTime = DateTime.MaxValue;
+                    labelFinishTime.Text = "∞";
+                }
             }
             else
             {
-                timer1.Enabled = false;
+                programTimer.Enabled = false;
                 btnSend.Text = "Start sending";
                 btnSend.BackColor = Color.LightGreen;
-                cbxMasterCtrlSw.Enabled = true;
-                cbxOutFanCtrl.Enabled = true;
-                CbxCompSwCtrl.Enabled = true;
-                txtCompTargetSpeed.Enabled = true;
-                txtOutFanTargetSpeed.Enabled = true;
+                if (defaultProgram.Checked)
+                {
+                    EnableControlSettings(true);
+                }
+                else
+                {
+                    EnableProgramSettings(true);
+                }
+                EnableProgramSelect(true);
             }
         }
 
@@ -182,18 +278,17 @@ namespace InverterDriver
 
         private void txtCompTargetSpeed_TextChanged(object sender, EventArgs e)
         {
-            UInt16 speed;
+            int speed;
             try
             {
-                speed = Convert.ToUInt16(txtCompTargetSpeed.Text);
+                speed = Convert.ToInt32(txtCompTargetSpeed.Text);
             }
             catch (Exception)
             {
                 MessageBox.Show("Geçerli kompresör target speed değeri giriniz.");
                 return;
             }
-            inverterData[4] = Convert.ToByte(speed & 0xFF);         // Low byte
-            inverterData[5] = Convert.ToByte((speed >> 8) & 0xFF);  // High byte
+            SetCompTargetSpeed(speed);
         }
 
         private void cbxOutFanCtrl_SelectedIndexChanged(object sender, EventArgs e)
@@ -290,7 +385,7 @@ namespace InverterDriver
                 panelStatus.BackColor = Color.LimeGreen;
                 adjustStatusLabel();
             }
-            else if (serialPort.IsOpen && timer1.Enabled) { MessageBox.Show("First stop sending data.", "Hatalı İşlem", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+            else if (serialPort.IsOpen && programTimer.Enabled) { MessageBox.Show("First stop sending data.", "Hatalı İşlem", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
             else
             {
                 serialPort.Close();
@@ -344,23 +439,32 @@ namespace InverterDriver
             commBoxHelpBtn.BackColor = Color.Transparent;
         }
 
-        private void timer1_Tick(object sender, EventArgs e)
+        private void programTimer_Tick(object sender, EventArgs e)
         {
             if (!serialPort.IsOpen) 
             { 
-                timer1.Enabled = false; 
+                programTimer.Enabled = false; 
                 MessageBox.Show("Serial port is not open."); 
                 return; 
             }
 
             /* Write to Serial Port & Communication Box */
+            if (defaultProgram.Checked)
+            {
+                DefaultProgramWrite();
+            } else if (setProgram.Checked)
+            {
+                SetProgramWrite();
+            }
+            /*
             byte checksum = 0;
             for (int i = 0; i < inverterData.Length - 1; i++)
             {
                 checksum += inverterData[i];
             }
             inverterData[63] = checksum;
-
+            serialPort.Write(inverterData, 0, inverterData.Length);
+            
             commBox.SelectionColor = Color.Blue;
             commBox.AppendText("-> ");
             commBox.SelectionColor = Color.LightGreen;
@@ -371,20 +475,8 @@ namespace InverterDriver
             }
             Console.WriteLine(" ");
             commBox.AppendText("\r\n\r\n");
-
-            serialPort.Write(inverterData, 0, inverterData.Length);
-
-            /* Timer Label */
-            string[] hms = labelTimer.Text.Split(':');
-            int h = Convert.ToInt32(hms[0]);
-            int m = Convert.ToInt32(hms[1]);
-            int s = Convert.ToInt32(hms[2]);
-
-            s++;
-            if (s >= 60) { s = 0; m++; }
-            if (m >= 60) { m = 0; h++; }
-            labelTimer.Text = h.ToString("00") + ":" + m.ToString("00") + ":" + s.ToString("00");
-
+            */
+            
             /* Received Data & Communication Box */
             receivedByteCount = 0;
             string[] x = receivedDataString.Split(' ');
@@ -432,6 +524,104 @@ namespace InverterDriver
             } catch(Exception ex)
             {
                 Console.WriteLine(ex.Message);
+            }
+        }
+
+        private void generalTimer_Tick(object sender, EventArgs e)
+        {
+            /* Timer Label */
+            if (programTimer.Enabled)
+            {
+                string[] hms = labelTimer.Text.Split(':');
+                int h = Convert.ToInt32(hms[0]);
+                int m = Convert.ToInt32(hms[1]);
+                int s = Convert.ToInt32(hms[2]);
+
+                s++;
+                if (s >= 60) { s = 0; m++; }
+                if (m >= 60) { m = 0; h++; }
+                labelTimer.Text = h.ToString("00") + ":" + m.ToString("00") + ":" + s.ToString("00");
+            }
+
+            clockLabel.Text = DateTime.Now.ToString("HH:mm:ss");
+        }
+
+        private void defaultProgram_Click(object sender, EventArgs e)
+        {
+            defaultProgram.Checked = true;
+            setProgram.Checked = false;
+            EnableControlSettings(true);
+            EnableProgramSettings(false);
+        }
+
+        private void setProgram_Click(object sender, EventArgs e)
+        {
+            setProgram.Checked = true;
+            defaultProgram.Checked = false;
+            EnableControlSettings(false);
+            EnableProgramSettings(true);
+        }
+
+        private void btnProgramAdd_Click(object sender, EventArgs e)
+        {
+            int programCount;
+            int maxProgramCount = 5;
+            try
+            {
+                programCount = Convert.ToInt32(txtProgramCount.Text);
+            }
+            catch (Exception)
+            {
+                MessageBox.Show($"Please enter number between {0} - {maxProgramCount}.");
+                return;
+            }
+
+            if (programCount < 0 || programCount > maxProgramCount) 
+            {
+                MessageBox.Show($"Please enter number between {0} - {maxProgramCount}.");
+                return;
+            }
+
+            if (programCount < dateTimePickers.Count)
+            {
+                for(int i = dateTimePickers.Count; i>programCount; i--)
+                {
+                    Controls.Remove(dateTimePickers[i - 1]);
+                    dateTimePickers.RemoveAt(i - 1);
+                    Controls.Remove(compSpeedTextBoxes[i - 1]);
+                    compSpeedTextBoxes.RemoveAt(i - 1);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < programCount; i++)
+                {
+                    dateTimePickers.Add(new DateTimePicker());
+                    dateTimePickers[i].Format = DateTimePickerFormat.Custom;
+                    dateTimePickers[i].CustomFormat = "HH:mm";
+                    dateTimePickers[i].ShowUpDown = true;
+                    dateTimePickers[i].Width = clockLabel.Width/2;
+                    dateTimePickers[i].Height = 22;
+                    dateTimePickers[i].Value = DateTime.Parse("00:00");
+                    Controls.Add(dateTimePickers[i]);
+                    dateTimePickers[i].Location = new Point(clockLabel.Location.X, clockLabel.Location.Y + 30 + i * 22);
+
+                    compSpeedTextBoxes.Add(new TextBox());
+                    compSpeedTextBoxes[i].Width = clockLabel.Width / 2;
+                    compSpeedTextBoxes[i].Height = 22;
+                    compSpeedTextBoxes[i].Text = "0";
+                    Controls.Add(compSpeedTextBoxes[i]);
+                    compSpeedTextBoxes[i].Location = new Point(clockLabel.Location.X + clockLabel.Width / 2, clockLabel.Location.Y + 30 + i * 22);
+                }
+            }
+
+        }
+
+        private void txtProgramCount_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                btnProgramAdd_Click(sender, e);
             }
         }
     }

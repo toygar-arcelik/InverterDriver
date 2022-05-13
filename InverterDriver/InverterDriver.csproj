@@ -56,6 +56,7 @@
     </Compile>
     <Compile Include="product\CountDownTimer.cs" />
     <Compile Include="product\ResponseData.cs" />
+    <Compile Include="product\TimeProgramPanel.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Form1.resx">
