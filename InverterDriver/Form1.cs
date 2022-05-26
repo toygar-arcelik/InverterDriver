@@ -22,6 +22,8 @@ namespace InverterDriver
         List<TextBox> compSpeedTextBoxes = new List<TextBox>();
         DateTime startTime;
         DateTime finishTime;
+        string logFileName = "temp.csv";
+        readonly string saveDir = "D:\\inverter driver log\\";
 
 
         // Why c# doesn't have local static variables?
@@ -86,6 +88,10 @@ namespace InverterDriver
                 receivedDataString = "";
                 Console.WriteLine("");
 
+                /* log */
+                var file = System.IO.File.Open(saveDir + logFileName, System.IO.FileMode.Append);
+                file.Write(UTF8Encoding.UTF8.GetBytes(receivedDataString), 0, UTF8Encoding.UTF8.GetByteCount(receivedDataString));
+                file.Close();
             }
         }
 
@@ -118,36 +124,71 @@ namespace InverterDriver
             btnProgramAdd.Enabled = isEnable;
         }
 
-        private void DefaultProgramWrite()
+        private void SetTxChecksum()
         {
-            SetCompTargetSpeed(Convert.ToInt32(txtCompTargetSpeed.Text));
             byte checksum = 0;
             for (int i = 0; i < inverterData.Length - 1; i++)
             {
                 checksum += inverterData[i];
             }
             inverterData[63] = checksum;
+        }
+        
+        private void WriteToSerial()
+        {
+            SetTxChecksum();
             serialPort.Write(inverterData, 0, inverterData.Length);
 
             commBox.SelectionColor = Color.Blue;
             commBox.AppendText("-> ");
             commBox.SelectionColor = Color.LightGreen;
+            //var file = System.IO.File.Open("D:\\inverterdriverlog\\" + logFileName, System.IO.FileMode.Append);
+            //file.Write(UTF8Encoding.UTF8.GetBytes("->,"), 0, UTF8Encoding.UTF8.GetByteCount("->,"));
             foreach (var item in inverterData)
             {
-                Console.Write(item.ToString("X2") + " ");
-                commBox.AppendText(item.ToString("X2") + " ");
+                var hexStr = item.ToString("X2");
+                Console.Write(hexStr + " ");
+                commBox.AppendText(hexStr + " ");
+                //file.Write(UTF8Encoding.UTF8.GetBytes(hexStr + ","), 0, UTF8Encoding.UTF8.GetByteCount(hexStr + ","));
             }
+            //file.Write(UTF8Encoding.UTF8.GetBytes("\r\n"), 0, UTF8Encoding.UTF8.GetByteCount("\r\n"));
+            //file.Close();
             Console.WriteLine(" ");
             commBox.AppendText("\r\n\r\n");
         }
         
+        private void DefaultProgramWrite()
+        {
+            SetCompTargetSpeed(Convert.ToInt32(txtCompTargetSpeed.Text));
+            WriteToSerial();
+        }
+        
         private void SetProgramWrite()
         {
+            var diff = DateTime.Now.Subtract(startTime);
+            //Console.WriteLine("Diff: " + diff.TotalSeconds);
+            double totalProgramSecondsTime = 0;
             foreach (var datetimepicker in dateTimePickers)
             {
-                TimeSpan diff = DateTime.Now - startTime;
-                //datetimepicker.
+                totalProgramSecondsTime += (datetimepicker.Value.Hour * 3600 + datetimepicker.Value.Minute * 60 + datetimepicker.Value.Second);
+                //Console.WriteLine(datetimepicker.Value);
+                if (diff.TotalSeconds < totalProgramSecondsTime)
+                {
+                    //Console.WriteLine(inverterData[4]);
+                    try
+                    {
+                        SetCompTargetSpeed(Convert.ToInt32(compSpeedTextBoxes[dateTimePickers.IndexOf(datetimepicker)].Text));
+                    }
+                    catch (Exception e)
+                    {
+                        MessageBox.Show(e.Message);
+                        SetCompTargetSpeed(0);
+                    }
+                    
+                    break;
+                }
             }
+            WriteToSerial();
         }
 
         private void SetCompTargetSpeed(int speed)
@@ -166,7 +207,6 @@ namespace InverterDriver
         {
             initializeInverterData();
             setDefaultSettings();
-
             btnConnect.Text = "Connect";
             btnConnect.BackColor = Color.Green;
             labelStatus.Text = "Disconnected";
@@ -191,6 +231,8 @@ namespace InverterDriver
             clockLabel.Text = DateTime.Now.ToString("HH:mm:ss");
             // one ring to rule them all
             defaultProgram_Click(sender, e);
+
+            labelLogPath.Text = $"Çalıştırılan programın log'u {saveDir} klasörüne kaydedilmektedir.";
         }
 
         private void btnSend_Click(object sender, EventArgs e)
@@ -199,6 +241,11 @@ namespace InverterDriver
 
             if (!programTimer.Enabled)
             {
+                if (!System.IO.File.Exists(saveDir))
+                {
+                    System.IO.Directory.CreateDirectory(saveDir);
+                }
+                logFileName = DateTime.Now.ToString("dd.MM.yyy-HH.mm") + ".csv";
                 labelTimer.Text = "00:00:00";
                 programTimer.Enabled = true;
                 btnSend.Text = "Stop sending";
@@ -208,8 +255,9 @@ namespace InverterDriver
                 EnableProgramSelect(false);
 
                 startTime = DateTime.Now;
-                labelStartTime.Text = startTime.ToString("HH:mm");
-                
+                labelStartTime.Text = startTime.ToString("dd.MM.yyyy HH:mm");
+                //labelStartTime.Text = startTime.ToString("HH:mm");
+
                 if (setProgram.Checked)
                 {
                     int remainingMinutes = 0;
@@ -219,7 +267,8 @@ namespace InverterDriver
                     }
                     //labelFinishTime.Text = TimeSpan.FromMinutes(remainingMinutes).ToString(@"hh\:mm");
                     finishTime = startTime.Add(TimeSpan.FromMinutes(remainingMinutes));
-                    labelFinishTime.Text = finishTime.ToString("HH:mm");
+                    labelFinishTime.Text = finishTime.ToString("dd.MM.yyyy HH:mm");
+                    //labelFinishTime.Text = finishTime.ToString("HH:mm");
                 }
                 else
                 {
@@ -454,6 +503,12 @@ namespace InverterDriver
                 DefaultProgramWrite();
             } else if (setProgram.Checked)
             {
+                if (dateTimePickers.Count == 0)
+                {
+                    btnSend_Click(sender, e);
+                    MessageBox.Show("En az bir program eklemelisiniz.");
+                    return;
+                }
                 SetProgramWrite();
             }
             /*
@@ -572,13 +627,13 @@ namespace InverterDriver
             }
             catch (Exception)
             {
-                MessageBox.Show($"Please enter number between {0} - {maxProgramCount}.");
+                MessageBox.Show($"Please enter number between ({0} - {maxProgramCount}].");
                 return;
             }
 
             if (programCount < 0 || programCount > maxProgramCount) 
             {
-                MessageBox.Show($"Please enter number between {0} - {maxProgramCount}.");
+                MessageBox.Show($"Please enter number between ({0} - {maxProgramCount}].");
                 return;
             }
 
